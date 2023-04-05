@@ -6,7 +6,7 @@ from transformers import AutoModelForSequenceClassification, AutoConfig
 
 class EmoRobertaForEmeme(nn.Module):
     def __init__(self, config: AutoConfig, model_name_or_path: str, model_kwargs: dict):
-        super().__init__()
+        super(EmoRobertaForEmeme, self).__init__()
         self.roberta_model = AutoModelForSequenceClassification.from_pretrained(
             model_name_or_path,
             from_tf=True,
