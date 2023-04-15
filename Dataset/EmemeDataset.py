@@ -89,10 +89,11 @@ def build_ememe_dataloader(batch_size: int,
                             emotion_list,
                             **kwargs) -> torch.utils.data.DataLoader:
 
-    shuffle = True if split == 'train' else False
+    shuffle = split == 'train'
 
     print("Creating tweets {} dataloader with batch size of {}".format(split, batch_size))
-    json_file_path_list = [file for file in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, file)) and file.endswith('.json')]
+    json_file_path_list = [file for file in os.listdir(data_dir) if
+                           os.path.isfile(os.path.join(data_dir, file)) and file.endswith('.json')]
     print("json_file_path_list: ", json_file_path_list)
     processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-mlm")
     dataset = EmemeDataset(data_dir, json_file_path_list, processor, split, emotion_list, **kwargs)

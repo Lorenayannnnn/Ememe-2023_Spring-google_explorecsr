@@ -48,7 +48,7 @@ class EmemeOutput(ModelOutput):
 
 
 class EmemeModel(PreTrainedModel):
-    def __init__(self, config: AutoConfig, model_name_or_path: str, model_kwargs: dict):
+    def __init__(self, config: AutoConfig, model_name_or_path: str, model_kwargs: dict, loss_c: float):
         super(self).__init__()
         self.text_model = EmoRobertaForEmeme(
             config=config,
@@ -67,9 +67,14 @@ class EmemeModel(PreTrainedModel):
         )
         self.contrastive_loss = self.ContrastiveLoss(self.logit_scale.exp())
 
-        self.visual_projection = nn.Linear(self.vision_embed_dim, self.projection_dim, bias=False)
-        self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
+        # self.visual_projection = nn.Linear(self.vision_embed_dim, self.projection_dim, bias=False)
+        # self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
+
+        self.projection_layer = nn.Linear(self.vision_embed_dim + self.text_embed_dim, self.projection_dim, bias=False)
+
         self.logit_scale = nn.Parameter(torch.ones([]) * self.config.logit_scale_init_value)
+
+        self.loss_c = loss_c
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
@@ -90,18 +95,24 @@ class EmemeModel(PreTrainedModel):
             logits_per_image = logits_per_text.T
             labels = torch.arange(batch_size).to(logits_per_text.device)
 
-            loss = F.cross_entropy(logits_per_text, labels) + F.cross_entropy(logits_per_text.T, labels)/2
+            loss = (F.cross_entropy(logits_per_text, labels) + F.cross_entropy(logits_per_text.T, labels)) / 2
             return loss, logits_per_text, logits_per_image
 
-    def forward(self, inputs):
+    def forward(self, inputs, labels):
         text_outputs, text_pooler_output = self.text_model(**inputs)
         image_outputs, image_pooler_output = self.meme_model(**inputs)
 
         text_embeds = F.normalize(text_pooler_output, dim=1)
         image_embeds = F.normalize(image_pooler_output, dim=1)
 
+        project_out = self.projection_layer(torch.cat((image_embeds, text_embeds), dim=1))
+
         # Compute the contrastive loss
-        loss, logits_per_text, logits_per_image = self.contrastive_loss(text_embeds, image_embeds)
+        contrastive_loss, logits_per_text, logits_per_image = self.contrastive_loss(text_embeds, image_embeds)
+        classification_loss = F.cross_entropy(project_out, inputs[labels])
+        loss = contrastive_loss + classification_loss * self.loss_c
+
+        # Only contrastive when retrieval
         print("loss: ", loss)
 
         return EmemeOutput(
