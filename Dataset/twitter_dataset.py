@@ -8,6 +8,8 @@ import numpy as np
 from PIL import Image
 import pickle as pkl
 import requests
+from typing import Dict
+from collections import OrderedDict
 
 
 # Reference: https://colab.research.google.com/github/NielsRogge/Transformers-Tutorials/blob/master/ViLT/Fine_tuning_ViLT_for_VQA.ipynb#scrollTo=Dl2UsPrTHbtu
@@ -17,6 +19,7 @@ class EmemeDataset(data.Dataset):
     """
 
     def __init__(self, data_dir, json_file_path_list, processor, split, emotion_list, **kwargs):
+        self.split = split
         self.data_dir = data_dir
         self.json_file_path_list = json_file_path_list
         # what is the processor for?
@@ -36,14 +39,16 @@ class EmemeDataset(data.Dataset):
                 json_file_path = os.path.join(data_dir, json_file)
                 print("json_file_path: ", json_file_path)
                 with open(json_file_path) as file:
-                    for line in file:
-                        j = json.loads(line)
-                        for image_url in j["photos"]:
+                    j = json.load(file)
+                    for data in j:
+                        image_url_list = data["photos"]
+                        print("image_url_list: ", image_url_list)
+                        for image_url in image_url_list:
                             example = {
-                                'text': j["tweet"],
+                                'text': data["tweet"],
                                 'image_url': image_url,
-                                'emotion': j["emotion"],
-                                'label': self.emotion2label[j["emotion"]]
+                                'emotion': data["emotion"],
+                                'label': self.emotion2label[data["emotion"]]
                             }
                             self.data.append(example)
 
@@ -81,7 +86,7 @@ class EmemeDataset(data.Dataset):
 def build_ememe_dataloader(batch_size: int,
                             data_dir: str,
                             split: str,
-                            emotion_list: list[str],
+                            emotion_list,
                             **kwargs) -> torch.utils.data.DataLoader:
 
     shuffle = True if split == 'train' else False
