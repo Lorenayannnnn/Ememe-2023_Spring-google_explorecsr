@@ -14,10 +14,14 @@ class EmoRobertaForEmeme(nn.Module):
             **model_kwargs
         ).roberta
 
+        # what is this for,
         self.pooler_layer = nn.Linear(in_features=config.hidden_size, out_features=config.hidden_size)
 
     def forward(self, inputs):
         outputs = self.roberta_model(**inputs)
         # last_hidden_state: batch_size, sequence_length, hidden_size
         pooled_outputs = self.pooler_layer(outputs.last_hidden_state)
-        return torch.tanh(pooled_outputs[:, -1, :])
+
+        # just return the ModelOutput with the pooler output
+        return outputs, torch.tanh(pooled_outputs[:, -1, :])
+        # return torch.tanh(pooled_outputs[:, -1, :])

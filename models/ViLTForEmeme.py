@@ -14,4 +14,7 @@ class ViLTForMemeSentimentClassification(nn.Module):
         )
 
     def forward(self, inputs):
-        return self.vilt_model(**inputs)['pooler_output']
+        # return self.vilt_model(**inputs)['pooler_output']
+        # just return the ModelOutput with the pooler output
+        output = self.vilt_model(**inputs)
+        return output, output['pooler_output']
