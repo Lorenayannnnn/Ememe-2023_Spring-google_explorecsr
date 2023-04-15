@@ -21,35 +21,54 @@ from transformers.trainer_utils import get_last_checkpoint, EvalPrediction
 from models.EmoRobertaForEmeme import EmoRobertaForEmeme
 from models.ViLTForEmeme import ViLTForMemeSentimentClassification
 
-idx_to_emotion_classes = {
-    "0": "admiration",
-    "1": "amusement",
-    "2": "anger",
-    "3": "annoyance",
-    "4": "approval",
-    "5": "caring",
-    "6": "confusion",
-    "7": "curiosity",
-    "8": "desire",
-    "9": "disappointment",
-    "10": "disapproval",
-    "11": "disgust",
-    "12": "embarrassment",
-    "13": "excitement",
-    "14": "fear",
-    "15": "gratitude",
-    "16": "grief",
-    "17": "joy",
-    "18": "love",
-    "19": "nervousness",
-    "20": "optimism",
-    "21": "pride",
-    "22": "realization",
-    "23": "relief",
-    "24": "remorse",
-    "25": "sadness",
-    "26": "surprise",
-    "27": "neutral"
+dataset_idx_to_label = {
+    "ememe": {
+        "0": "anger",
+        "1": "disgust",
+        "2": "fear",
+        "3": "joy",
+        "4": "sadness",
+        "5": "surprise"
+    },
+    "goemotion": {
+        "0": "admiration",
+        "1": "amusement",
+        "2": "anger",
+        "3": "annoyance",
+        "4": "approval",
+        "5": "caring",
+        "6": "confusion",
+        "7": "curiosity",
+        "8": "desire",
+        "9": "disappointment",
+        "10": "disapproval",
+        "11": "disgust",
+        "12": "embarrassment",
+        "13": "excitement",
+        "14": "fear",
+        "15": "gratitude",
+        "16": "grief",
+        "17": "joy",
+        "18": "love",
+        "19": "nervousness",
+        "20": "optimism",
+        "21": "pride",
+        "22": "realization",
+        "23": "relief",
+        "24": "remorse",
+        "25": "sadness",
+        "26": "surprise",
+        "27": "neutral"
+    },
+    "memotion": {
+        "1": "happiness",
+        "2": "love",
+        "3": "anger",
+        "4": "sorrow",
+        "5": "fear",
+        "6": "hate",
+        "7": "surprise"
+    }
 }
 
 logger = logging.getLogger(__name__)
@@ -279,11 +298,7 @@ def main():
 
     # Labels
     if data_args.dataset_name is not None:
-        # TODO update dataset name/task name
-        if data_args.dataset_name == "text-to-emotion":
-            num_labels = len(list(idx_to_emotion_classes.keys()))
-        else:
-            num_labels = 1
+        num_labels = len(list(dataset_idx_to_label[data_args.dataset_name].keys())) if data_args.dataset_name in dataset_idx_to_label.keys() else 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
         is_regression = raw_datasets["train"].features["label"].dtype in ["float32", "float64"]
@@ -363,12 +378,11 @@ def main():
         # We will pad later, dynamically at batch creation, to the max sequence length in each batch
         padding = False
 
-    # TODO add label for vilt
-    if data_args.dataset_name == "text-to-emotion":
-        label_to_id = list(idx_to_emotion_classes.values())
-        # TODO update label ids
-        model.config.label2id = list(idx_to_emotion_classes.values())
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
+    if data_args.dataset_name is not None:
+        label_list = list(dataset_idx_to_label[data_args.dataset_name].values())
+        label_to_id = {v: i for i, v in enumerate(label_list)}
+        model.config.label2id = label_to_id
+        model.config.id2label = dataset_idx_to_label[data_args.dataset_name]
 
     if data_args.max_seq_length > tokenizer.model_max_length:
         logger.warning(
@@ -379,7 +393,7 @@ def main():
 
     def preprocess_function(examples):
         # TODO: update example access based on dataset loading
-        if data_args.dataset_name == "text-to-emotion":
+        if data_args.dataset_name == "goemotion":
             args = (
                 examples["text"]
             )

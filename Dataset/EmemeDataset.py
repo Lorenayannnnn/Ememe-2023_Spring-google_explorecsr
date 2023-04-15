@@ -1,15 +1,13 @@
+
 import json
 import os
 from torch.utils import data
 from transformers import ViltProcessor
-import pandas as pd
 import torch
 import numpy as np
 from PIL import Image
 import pickle as pkl
 import requests
-from typing import Dict
-from collections import OrderedDict
 
 
 # Reference: https://colab.research.google.com/github/NielsRogge/Transformers-Tutorials/blob/master/ViLT/Fine_tuning_ViLT_for_VQA.ipynb#scrollTo=Dl2UsPrTHbtu
