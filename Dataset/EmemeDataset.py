@@ -102,4 +102,8 @@ def build_ememe_dataloader(batch_size: int,
     return dataloader
 
 emotion_list = ['anger', 'disgust', 'fear', 'joy', 'sadness', 'surprise']
-build_ememe_dataloader(64, '../data', 'train', emotion_list)
+train_dataloader = build_ememe_dataloader(64, 'data', 'train', emotion_list)
+pkl.dump(train_dataloader, open('cached_train_dataset.pkl', 'wb'))
+test_dataloader = build_ememe_dataloader(64, 'data', 'test', emotion_list)
+pkl.dump(test_dataloader, open('cached_test_dataset.pkl', 'wb'))
+
