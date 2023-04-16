@@ -22,14 +22,15 @@ class EmemeDataset(data.Dataset):
         self.json_file_path_list = json_file_path_list
         # what is the processor for?
         self.processor = processor
-        self.cached_data_file = os.path.join(data_dir, 'cached_twitter_data_{}.pkl'.format(split))
+        self.cached_data_file = 'cached_twitter_data_{}.pkl'.format(split)
         self.emotion_list = emotion_list
         self.emotion2label = {item: index for index, item in enumerate(emotion_list)}
         self.num_labels = len(emotion_list)
+        print(f"cached_data_file in {self.cached_data_file}")
         print("num_labels: ", self.num_labels)
 
         if os.path.exists(self.cached_data_file):
-            # Load cached data
+            # Load cached raw_json_data
             self.data = pkl.load(open(self.cached_data_file, 'rb'))
         else:
             self.data = []
@@ -91,7 +92,7 @@ def build_ememe_dataloader(batch_size: int,
 
     print("Creating tweets {} dataloader with batch size of {}".format(split, batch_size))
     json_file_path_list = [file for file in os.listdir(data_dir) if
-                           os.path.isfile(os.path.join(data_dir, file)) and file.endswith('.json')]
+                           os.path.isfile(os.path.join(data_dir, file)) and file.endswith('.json') and split in file]
     print("json_file_path_list: ", json_file_path_list)
     processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-mlm")
     dataset = EmemeDataset(data_dir, json_file_path_list, processor, split, emotion_list, **kwargs)
@@ -101,4 +102,4 @@ def build_ememe_dataloader(batch_size: int,
     return dataloader
 
 emotion_list = ['anger', 'disgust', 'fear', 'joy', 'sadness', 'surprise']
-build_ememe_dataloader(64, 'data', 'train', emotion_list)
+build_ememe_dataloader(64, '../data', 'train', emotion_list)

@@ -119,7 +119,7 @@ class ModelArguments:
 @dataclass
 class DataTrainingArguments:
     """
-    Arguments pertaining to what data we are going to input our model for training and eval.
+    Arguments pertaining to what raw_json_data we are going to input our model for training and eval.
 
     Using `HfArgumentParser` we can turn this class
     into argparse arguments to be able to specify them on
@@ -180,12 +180,12 @@ class DataTrainingArguments:
         },
     )
     train_file: Optional[str] = field(
-        default=None, metadata={"help": "A csv or a json file containing the training data."}
+        default=None, metadata={"help": "A csv or a json file containing the training raw_json_data."}
     )
     validation_file: Optional[str] = field(
-        default=None, metadata={"help": "A csv or a json file containing the validation data."}
+        default=None, metadata={"help": "A csv or a json file containing the validation raw_json_data."}
     )
-    test_file: Optional[str] = field(default=None, metadata={"help": "A csv or a json file containing the test data."})
+    test_file: Optional[str] = field(default=None, metadata={"help": "A csv or a json file containing the test raw_json_data."})
 
 
 def main():
