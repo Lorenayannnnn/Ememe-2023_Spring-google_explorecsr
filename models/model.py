@@ -3,12 +3,9 @@ from typing import Optional, Tuple, Any
 import torch
 from torch import nn
 import torch.nn.functional as F
-from transformers import AutoConfig, ViltProcessor, PreTrainedModel
+from transformers import AutoConfig, PreTrainedModel
 from transformers.modeling_outputs import BaseModelOutputWithPooling
 from transformers.utils import ModelOutput
-
-from models.EmoRobertaForEmeme import EmoRobertaForEmeme
-from models.ViLTForEmeme import ViLTForMemeSentimentClassification
 
 class EmemeOutput(ModelOutput):
     """
