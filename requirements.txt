@@ -1,6 +1,8 @@
-transformers
-datasets
-torch
+transformers~=4.27.4
+datasets~=2.11.0
+torch~=2.0.0
 tensorflow
-Pillow
-numpy
+Pillow~=9.5.0
+numpy~=1.23.5
+requests~=2.28.2
+evaluate~=0.4.0

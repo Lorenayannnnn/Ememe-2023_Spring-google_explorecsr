@@ -48,23 +48,11 @@ class EmemeOutput(ModelOutput):
 
 
 class EmemeModel(PreTrainedModel):
-    def __init__(self, config: AutoConfig, model_name_or_path: str, model_kwargs: dict, loss_c: float):
+    def __init__(self, text_model, processor, meme_model, loss_c: float):
         super(self).__init__()
-        self.text_model = EmoRobertaForEmeme(
-            config=config,
-            model_name_or_path=model_name_or_path,
-            model_kwargs=model_kwargs
-        )
-        self.processor = ViltProcessor.from_pretrained(
-            model_name_or_path,
-            config=config,
-            **model_kwargs
-        )
-        self.meme_model = ViLTForMemeSentimentClassification(
-            model_name_or_path=model_name_or_path,
-            config=config,
-            **model_kwargs
-        )
+        self.text_model = text_model
+        self.processor = processor
+        self.meme_model = meme_model
         self.contrastive_loss = self.ContrastiveLoss(self.logit_scale.exp())
 
         # self.visual_projection = nn.Linear(self.vision_embed_dim, self.projection_dim, bias=False)

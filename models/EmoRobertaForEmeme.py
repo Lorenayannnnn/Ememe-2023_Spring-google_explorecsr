@@ -13,8 +13,8 @@ class EmoRobertaForEmeme(nn.Module):
             config=config,
             **model_kwargs
         ).roberta
+        print(self.roberta_model)
 
-        # what is this for,
         self.pooler_layer = nn.Linear(in_features=config.hidden_size, out_features=config.hidden_size)
 
     def forward(self, inputs):

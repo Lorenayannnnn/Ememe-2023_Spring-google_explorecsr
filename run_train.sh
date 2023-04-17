@@ -41,8 +41,10 @@
 # Ememe Model
 CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --dataset_name ememe \
-    --cached_dataset_path data/cached_twitter_data_train.pkl \
+    --cached_dataset cached_data \
     --model_name_or_path ememe \
+    --emoroberta_model_name_or_path arpanghoshal/EmoRoBERTa \
+    --vilt_model_name_or_path dandelin/vilt-b32-mlm \
     --do_train \
     --do_eval \
     --max_seq_length 128 \
@@ -57,4 +59,5 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --metric_for_best_model accuracy \
     --greater_is_better true \
     --output_dir outputs/ememe/ \
-    --overwrite_cache
+    --overwrite_cache \
+    --loss_c 0.5

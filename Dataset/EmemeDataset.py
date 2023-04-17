@@ -1,4 +1,3 @@
-
 import json
 import os
 from torch.utils import data
@@ -16,13 +15,13 @@ class EmemeDataset(data.Dataset):
     EmemeDataset
     """
 
-    def __init__(self, data_dir, json_file_path_list, processor, split, emotion_list, **kwargs):
+    def __init__(self, data_dir, json_file_path_list, processor, split, emotion_list, out_file_name: str):
         self.split = split
         self.data_dir = data_dir
         self.json_file_path_list = json_file_path_list
         # what is the processor for?
         self.processor = processor
-        self.cached_data_file = 'cached_twitter_data_{}.pkl'.format(split)
+        self.cached_data_file = '{}_{}.pkl'.format(out_file_name, split)
         self.emotion_list = emotion_list
         self.emotion2label = {item: index for index, item in enumerate(emotion_list)}
         self.num_labels = len(emotion_list)
@@ -36,18 +35,18 @@ class EmemeDataset(data.Dataset):
             self.data = []
             for json_file in json_file_path_list:
                 json_file_path = os.path.join(data_dir, json_file)
-                print("json_file_path: ", json_file_path)
+                # print("json_file_path: ", json_file_path)
                 with open(json_file_path) as file:
                     j = json.load(file)
-                    for data in j:
-                        image_url_list = data["photos"]
-                        print("image_url_list: ", image_url_list)
+                    for entry in j:
+                        image_url_list = entry["photos"]
+                        # print("image_url_list: ", image_url_list)
                         for image_url in image_url_list:
                             example = {
-                                'text': data["tweet"],
+                                'text': entry["tweet"],
                                 'image_url': image_url,
-                                'emotion': data["emotion"],
-                                'label': self.emotion2label[data["emotion"]]
+                                'emotion': entry["emotion"],
+                                'label': self.emotion2label[entry["emotion"]]
                             }
                             self.data.append(example)
 
@@ -55,8 +54,6 @@ class EmemeDataset(data.Dataset):
 
         self.n_examples = len(self.data)
         print("Loaded tweets {} dataset, with {} examples".format(self.split, len(self.data)))
-
-
 
     def __len__(self):
         return len(self.data)
@@ -83,27 +80,47 @@ class EmemeDataset(data.Dataset):
 
 
 def build_ememe_dataloader(batch_size: int,
-                            data_dir: str,
-                            split: str,
-                            emotion_list,
-                            **kwargs) -> torch.utils.data.DataLoader:
-
+                           data_dir: str,
+                           split: str,
+                           emotion_classes,
+                           **kwargs) -> torch.utils.data.DataLoader:
     shuffle = split == 'train'
+    dataloader = torch.utils.data.DataLoader(build_ememe_dataset(batch_size, data_dir, split, emotion_classes),
+                                             batch_size=batch_size,
+                                             shuffle=shuffle)
+    return dataloader
 
+
+def build_ememe_dataset(batch_size: int, data_dir: str, split: str, emotion_classes: list, out_file_name: str,
+                        **kwargs) -> EmemeDataset:
     print("Creating tweets {} dataloader with batch size of {}".format(split, batch_size))
     json_file_path_list = [file for file in os.listdir(data_dir) if
                            os.path.isfile(os.path.join(data_dir, file)) and file.endswith('.json') and split in file]
     print("json_file_path_list: ", json_file_path_list)
     processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-mlm")
-    dataset = EmemeDataset(data_dir, json_file_path_list, processor, split, emotion_list, **kwargs)
-    dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=batch_size,
-                                             shuffle=shuffle)
-    return dataloader
+    return EmemeDataset(data_dir, json_file_path_list, processor, split, emotion_classes, out_file_name)
 
-emotion_list = ['anger', 'disgust', 'fear', 'joy', 'sadness', 'surprise']
-train_dataloader = build_ememe_dataloader(64, 'data', 'train', emotion_list)
-pkl.dump(train_dataloader, open('cached_train_dataset.pkl', 'wb'))
-test_dataloader = build_ememe_dataloader(64, 'data', 'test', emotion_list)
-pkl.dump(test_dataloader, open('cached_test_dataset.pkl', 'wb'))
 
+if __name__ == "__main__":
+    emotion_list = ['anger', 'disgust', 'fear', 'joy', 'sadness', 'surprise']
+    # train_dataloader = build_ememe_dataloader(64, 'data', 'train', emotion_list)
+    # pkl.dump(train_dataloader, open('cached_train_dataset.pkl', 'wb'))
+    # test_dataloader = build_ememe_dataloader(64, 'data', 'test', emotion_list)
+    # pkl.dump(test_dataloader, open('cached_test_dataset.pkl', 'wb'))
+    cached_data_filename = 'cached_data'
+    # batch_size: int, data_dir: str, split: str, emotion_classes: list, out_file_name
+    train_dataset = build_ememe_dataset(
+        batch_size=64,
+        data_dir='data',
+        split='train',
+        emotion_classes=emotion_list,
+        out_file_name=cached_data_filename)
+    pkl.dump(train_dataset, open('cached_data_train.pkl', 'wb'))
+    test_dataset = build_ememe_dataset(
+        batch_size=64,
+        data_dir='data',
+        split='test',
+        emotion_classes=emotion_list,
+        out_file_name=cached_data_filename
+    )
+    pkl.dump(test_dataset, open('cached_data_dev.pkl', 'wb'))

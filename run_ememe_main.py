@@ -10,6 +10,7 @@ import evaluate as evaluate
 import numpy as np
 import transformers
 from datasets import load_dataset
+import pickle as pkl
 from transformers import (
     HfArgumentParser,
     TrainingArguments, set_seed, AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, AutoModel,
@@ -20,6 +21,8 @@ from transformers.trainer_utils import get_last_checkpoint, EvalPrediction
 
 from models.EmoRobertaForEmeme import EmoRobertaForEmeme
 from models.ViLTForEmeme import ViLTForMemeSentimentClassification
+from models.model import EmemeModel
+from Dataset.EmemeDataset import EmemeDataset
 
 dataset_idx_to_label = {
     "ememe": {
@@ -113,6 +116,18 @@ class ModelArguments:
     ignore_mismatched_sizes: bool = field(
         default=False,
         metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."},
+    ),
+    emoroberta_model_name_or_path: str = field(
+        default="arpanghoshal/EmoRoBERTa",
+        metadata={"help": "for EmoRoBERTa: Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    vilt_model_name_or_path: str = field(
+        default="dandelin/vilt-b32-mlm",
+        metadata={"help": "for ViLT: Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    loss_c: float = field(
+        default=0.1,
+        metadata={"help": "percentage of classification loss that will be added in addition to contrastive loss"}
     )
 
 
@@ -186,6 +201,9 @@ class DataTrainingArguments:
         default=None, metadata={"help": "A csv or a json file containing the validation raw_json_data."}
     )
     test_file: Optional[str] = field(default=None, metadata={"help": "A csv or a json file containing the test raw_json_data."})
+    cached_dataset: Optional[str] = field(
+        default=None, metadata={"help": "locally cached ememe dataset pickle file"}
+    )
 
 
 def main():
@@ -254,8 +272,17 @@ def main():
     # In distributed training, the load_dataset function guarantee that only one local process can concurrently
     # download the dataset.
     if data_args.dataset_name is not None:
-        # TODO load Ememe dataset
-        pass
+        if data_args.dataset_name == "ememe":
+            # Load from preprocessed local data pkl file
+            ememe_train_datafile = "{}_train.pkl".format(data_args.cached_dataset)
+            ememe_dev_datafile = "{}_dev.pkl".format(data_args.cached_dataset)
+            data = pkl.load(open(ememe_train_datafile, 'rb'))
+            raw_datasets = {
+                "train": pkl.load(open(ememe_train_datafile, 'rb')),
+                "validation": pkl.load(open(ememe_dev_datafile, 'rb'))
+            }
+        else:
+            raise ValueError("Dataset not supported yet")
     else:
         # Loading a dataset from your local files.
         # CSV/JSON training and evaluation files are needed.
@@ -316,21 +343,50 @@ def main():
     '''
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+    if data_args.dataset_name != "ememe":
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            use_fast=model_args.use_fast_tokenizer,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
 
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+    if data_args.dataset_name == "ememe":
+        emoroberta_config = AutoConfig.from_pretrained(
+            model_args.emoroberta_model_name_or_path,
+            num_labels=num_labels,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        vilt_config = AutoConfig.from_pretrained(
+            model_args.vilt_model_name_or_path,
+            num_labels=num_labels,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    else:
+        config = AutoConfig.from_pretrained(
+            model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+            num_labels=num_labels,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+
+    if data_args.dataset_name is not None:
+        label_list = list(dataset_idx_to_label[data_args.dataset_name].values())
+        label_to_id = {v: i for i, v in enumerate(label_list)}
+        if data_args.dataset_name == "ememe":
+            emoroberta_config.label2id = label_to_id
+            emoroberta_config.id2label = dataset_idx_to_label[data_args.dataset_name]
+            vilt_config.label2id = label_to_id
+            vilt_config.id2label = dataset_idx_to_label[data_args.dataset_name]
+        else:
+            config.label2id = label_to_id
+            config.id2label = dataset_idx_to_label[data_args.dataset_name]
 
     if model_args.model_name_or_path:
         model_kwargs = {
@@ -339,14 +395,14 @@ def main():
             "use_auth_token": True if model_args.use_auth_token else None,
             "ignore_mismatched_sizes": model_args.ignore_mismatched_sizes
         }
-        if data_args.dataset_name == "text-to-emotion":
+        if data_args.dataset_name == "goemotion":
             # EmoRoBERTa
             model = EmoRobertaForEmeme(
                 config=config,
                 model_name_or_path=model_args.model_name_or_path,
                 model_kwargs=model_kwargs
             )
-        elif data_args.dataset_name == "ememe":
+        elif data_args.dataset_name == "memotion":
             processor = ViltProcessor.from_pretrained(
                 model_args.model_name_or_path,
                 config=config,
@@ -357,68 +413,87 @@ def main():
                 config=config,
                 **model_kwargs
             )
-        else:
-            model = AutoModel.from_pretrained(
-                model_args.model_name_or_path,
-                from_tf=bool(".ckpt" in model_args.model_name_or_path),
-                config=config,
+        elif data_args.dataset_name == "ememe":
+            text_model = EmoRobertaForEmeme(
+                config=emoroberta_config,
+                model_name_or_path=model_args.emoroberta_model_name_or_path,
+                model_kwargs=model_kwargs
+            )
+            processor = ViltProcessor.from_pretrained(
+                model_args.vilt_model_name_or_path,
+                config=vilt_config,
                 **model_kwargs
             )
+            meme_model = ViLTForMemeSentimentClassification(
+                model_name_or_path=model_args.vilt_model_name_or_path,
+                config=vilt_config,
+                **model_kwargs
+            )
+            model = EmemeModel(
+                text_model=text_model,
+                processor=processor,
+                meme_model=meme_model,
+                loss_c=model_args.loss_c
+            )
+        else:
+            # model = AutoModel.from_pretrained(
+            #     model_args.model_name_or_path,
+            #     from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            #     config=config,
+            #     **model_kwargs
+            # )
+            raise ValueError("Model for the input task is not supported")
     else:
         logger.info("Training new model from scratch")
         model = AutoModelForSequenceClassification.from_config(config)
 
-    '''
-    Preprocess Dataset
-    '''
-    # Padding strategy
-    if data_args.pad_to_max_length:
-        padding = "max_length"
-    else:
-        # We will pad later, dynamically at batch creation, to the max sequence length in each batch
-        padding = False
+    print(model)
 
-    if data_args.dataset_name is not None:
-        label_list = list(dataset_idx_to_label[data_args.dataset_name].values())
-        label_to_id = {v: i for i, v in enumerate(label_list)}
-        model.config.label2id = label_to_id
-        model.config.id2label = dataset_idx_to_label[data_args.dataset_name]
+    if data_args.dataset_name != "ememe":
+        '''
+        Preprocess Dataset
+        '''
+        # Padding strategy
+        if data_args.pad_to_max_length:
+            padding = "max_length"
+        else:
+            # We will pad later, dynamically at batch creation, to the max sequence length in each batch
+            padding = False
 
-    if data_args.max_seq_length > tokenizer.model_max_length:
-        logger.warning(
-            f"The max_seq_length passed ({data_args.max_seq_length}) is larger than the maximum length for the"
-            f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
-        )
-    max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-
-    def preprocess_function(examples):
-        # TODO: update example access based on dataset loading
-        if data_args.dataset_name == "goemotion":
-            args = (
-                examples["text"]
+        if data_args.max_seq_length > tokenizer.model_max_length:
+            logger.warning(
+                f"The max_seq_length passed ({data_args.max_seq_length}) is larger than the maximum length for the"
+                f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
             )
-            result = tokenizer(*args, padding=padding, max_length=max_seq_length, truncation=True, return_tensors="pt")
-        elif data_args.dataset_name == "ememe":
-            args = (
-                examples["image"],
-                examples["text"]
+        max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+
+        def preprocess_function(examples):
+            # TODO: update example access based on dataset loading
+            if data_args.dataset_name == "goemotion":
+                args = (
+                    examples["text"]
+                )
+                result = tokenizer(*args, padding=padding, max_length=max_seq_length, truncation=True, return_tensors="pt")
+            elif data_args.dataset_name == "ememe":
+                args = (
+                    examples["image"],
+                    examples["text"]
+                )
+                result = processor(*args, padding=padding, max_length=max_seq_length, truncation=True, return_tensors="pt")
+
+            # Map labels to IDs (not necessary for GLUE tasks)
+            if label_to_id is not None and "label" in examples:
+                result["label"] = [(label_to_id[l] if l != -1 else -1) for l in examples["label"]]
+            return result
+
+        with training_args.main_process_first(desc="dataset map pre-processing"):
+            raw_datasets = raw_datasets.map(
+                preprocess_function,
+                batched=True,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on dataset",
             )
-            result = processor(*args, padding=padding, max_length=max_seq_length, truncation=True, return_tensors="pt")
 
-        # Map labels to IDs (not necessary for GLUE tasks)
-        if label_to_id is not None and "label" in examples:
-            result["label"] = [(label_to_id[l] if l != -1 else -1) for l in examples["label"]]
-        return result
-
-    with training_args.main_process_first(desc="dataset map pre-processing"):
-        raw_datasets = raw_datasets.map(
-            preprocess_function,
-            batched=True,
-            load_from_cache_file=not data_args.overwrite_cache,
-            desc="Running tokenizer on dataset",
-        )
-
-    # TODO update dataset
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
