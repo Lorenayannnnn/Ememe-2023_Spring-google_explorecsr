@@ -19,9 +19,8 @@ class EmemeDataset(data.Dataset):
         self.split = split
         self.data_dir = data_dir
         self.json_file_path_list = json_file_path_list
-        # what is the processor for?
         self.processor = processor
-        self.cached_data_file = '{}_{}.pkl'.format(out_file_name, split)
+        self.cached_data_file = '{}_{}.pkl'.format(out_file_name, "dev" if split == "test" else "train")
         self.emotion_list = emotion_list
         self.emotion2label = {item: index for index, item in enumerate(emotion_list)}
         self.num_labels = len(emotion_list)
@@ -116,11 +115,11 @@ if __name__ == "__main__":
         emotion_classes=emotion_list,
         out_file_name=cached_data_filename)
     pkl.dump(train_dataset, open('cached_data_train.pkl', 'wb'))
-    test_dataset = build_ememe_dataset(
+    dev_dataset = build_ememe_dataset(
         batch_size=64,
         data_dir='data',
         split='test',
         emotion_classes=emotion_list,
         out_file_name=cached_data_filename
     )
-    pkl.dump(test_dataset, open('cached_data_dev.pkl', 'wb'))
+    pkl.dump(dev_dataset, open('cached_data_dev.pkl', 'wb'))
