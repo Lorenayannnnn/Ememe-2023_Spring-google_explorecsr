@@ -9,11 +9,9 @@ class EmoRobertaForEmeme(nn.Module):
         super(EmoRobertaForEmeme, self).__init__()
         self.roberta_model = AutoModelForSequenceClassification.from_pretrained(
             model_name_or_path,
-            from_tf=True,
             config=config,
             **model_kwargs
         ).roberta
-        print(self.roberta_model)
 
         self.pooler_layer = nn.Linear(in_features=config.hidden_size, out_features=config.hidden_size)
 

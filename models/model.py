@@ -3,9 +3,13 @@ from typing import Optional, Tuple, Any
 import torch
 from torch import nn
 import torch.nn.functional as F
-from transformers import AutoConfig, PreTrainedModel
+from transformers import AutoConfig
 from transformers.modeling_outputs import BaseModelOutputWithPooling
 from transformers.utils import ModelOutput
+
+from models.EmoRobertaForEmeme import EmoRobertaForEmeme
+from models.ViLTForEmeme import ViLTForMemeSentimentClassification
+
 
 class EmemeOutput(ModelOutput):
     """
@@ -44,22 +48,26 @@ class EmemeOutput(ModelOutput):
         )
 
 
-class EmemeModel(PreTrainedModel):
-    def __init__(self, text_model, processor, meme_model, loss_c: float):
-        super(self).__init__()
+# EmemeModel
+# PreTrainedModel
+class EmemeModel(nn.Module):
+    def __init__(self, text_model: EmoRobertaForEmeme, meme_model: ViLTForMemeSentimentClassification, loss_c: float,
+                 contrastive_logit_scale: float, projection_dim: int):
+        super(EmemeModel, self).__init__()
         self.text_model = text_model
-        self.processor = processor
         self.meme_model = meme_model
+        self.logit_scale = nn.Parameter(torch.ones([]) * contrastive_logit_scale)
+        self.loss_c = loss_c
         self.contrastive_loss = self.ContrastiveLoss(self.logit_scale.exp())
+        self.projection_dim = projection_dim
+
+        self.vision_embed_dim = self.meme_model.vilt_model.config.hidden_size
+        self.text_embed_dim = self.text_model.roberta_model.config.hidden_size
 
         # self.visual_projection = nn.Linear(self.vision_embed_dim, self.projection_dim, bias=False)
         # self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
 
         self.projection_layer = nn.Linear(self.vision_embed_dim + self.text_embed_dim, self.projection_dim, bias=False)
-
-        self.logit_scale = nn.Parameter(torch.ones([]) * self.config.logit_scale_init_value)
-
-        self.loss_c = loss_c
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
