@@ -43,7 +43,8 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --dataset_name ememe \
     --cached_dataset cached_data \
     --model_name_or_path ememe \
-    --emoroberta_model_name_or_path arpanghoshal/EmoRoBERTa \
+    --emoroberta_model_ckpt emoroberta_pytorch_model.bin \
+    --emoroberta_model_name_or_path tae898/emoberta-base \
     --vilt_model_name_or_path dandelin/vilt-b32-mlm \
     --do_train \
     --do_eval \
@@ -60,4 +61,6 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --greater_is_better true \
     --output_dir outputs/ememe/ \
     --overwrite_cache \
-    --loss_c 0.5
+    --loss_c 0.5 \
+    --contrastive_logit_scale 2.6592 \
+    --projection_dim 512
