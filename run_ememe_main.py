@@ -13,8 +13,8 @@ from datasets import load_dataset
 import pickle as pkl
 from transformers import (
     HfArgumentParser,
-    TrainingArguments, set_seed, AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, AutoModel,
-    ViltProcessor, default_data_collator, DataCollatorWithPadding, Trainer
+    TrainingArguments, set_seed, AutoTokenizer, AutoConfig, AutoModelForSequenceClassification,
+    default_data_collator, DataCollatorWithPadding, Trainer
 )
 import datasets
 from transformers.trainer_utils import get_last_checkpoint, EvalPrediction
@@ -22,6 +22,8 @@ from transformers.trainer_utils import get_last_checkpoint, EvalPrediction
 from models.EmoRobertaForEmeme import EmoRobertaForEmeme
 from models.ViLTForEmeme import ViLTForMemeSentimentClassification
 from models.model import EmemeModel
+
+# Do not remove
 from Dataset.EmemeDataset import EmemeDataset
 
 dataset_idx_to_label = {
@@ -86,6 +88,9 @@ class ModelArguments:
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
+    emoroberta_model_ckpt: str = field(
+        metadata={"help": "Filename to emoroberta model checkpoint"}
+    )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
     )
@@ -128,6 +133,14 @@ class ModelArguments:
     loss_c: float = field(
         default=0.1,
         metadata={"help": "percentage of classification loss that will be added in addition to contrastive loss"}
+    )
+    contrastive_logit_scale: float = field(
+        default=2.6592,
+        metadata={"help": "logit scale for contrastive loss"}
+    )
+    projection_dim: int = field(
+        default=512,
+        metadata={"help": "output dimension of projection layer of the ememe model"}
     )
 
 
@@ -259,27 +272,15 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON training and evaluation files (see below)
-    # or specify a GLUE benchmark task (the dataset will be downloaded automatically from the datasets Hub).
-    #
-    # For CSV/JSON files, this script will use as labels the column called 'label' and as pair of sentences the
-    # sentences in columns called 'sentence1' and 'sentence2' if such column exists or the first two columns not named
-    # label if at least two columns are provided.
-    #
-    # If the CSVs/JSONs contain only one non-label column, the script does single sentence classification on this
-    # single column. You can easily tweak this behavior (see below)
-    #
-    # In distributed training, the load_dataset function guarantee that only one local process can concurrently
-    # download the dataset.
+    # Get the datasets
     if data_args.dataset_name is not None:
         if data_args.dataset_name == "ememe":
             # Load from preprocessed local data pkl file
             ememe_train_datafile = "{}_train.pkl".format(data_args.cached_dataset)
             ememe_dev_datafile = "{}_dev.pkl".format(data_args.cached_dataset)
-            data = pkl.load(open(ememe_train_datafile, 'rb'))
             raw_datasets = {
-                "train": pkl.load(open(ememe_train_datafile, 'rb')),
-                "validation": pkl.load(open(ememe_dev_datafile, 'rb'))
+                "train": pkl.load(open(ememe_train_datafile, "rb")),
+                "validation": pkl.load(open(ememe_dev_datafile, "rb"))
             }
         else:
             raise ValueError("Dataset not supported yet")
@@ -399,15 +400,15 @@ def main():
             # EmoRoBERTa
             model = EmoRobertaForEmeme(
                 config=config,
-                model_name_or_path=model_args.model_name_or_path,
+                model_name_or_path=model_args.emoroberta_model_ckpt if model_args.emoroberta_model_ckpt else model_args.emoroberta_model_name_or_path,
                 model_kwargs=model_kwargs
             )
         elif data_args.dataset_name == "memotion":
-            processor = ViltProcessor.from_pretrained(
-                model_args.model_name_or_path,
-                config=config,
-                **model_kwargs
-            )
+            # processor = ViltProcessor.from_pretrained(
+            #     model_args.model_name_or_path,
+            #     config=config,
+            #     **model_kwargs
+            # )
             model = ViLTForMemeSentimentClassification(
                 model_name_or_path=model_args.model_name_or_path,
                 config=config,
@@ -419,21 +420,22 @@ def main():
                 model_name_or_path=model_args.emoroberta_model_name_or_path,
                 model_kwargs=model_kwargs
             )
-            processor = ViltProcessor.from_pretrained(
-                model_args.vilt_model_name_or_path,
-                config=vilt_config,
-                **model_kwargs
-            )
+            # processor = ViltProcessor.from_pretrained(
+            #     model_args.vilt_model_name_or_path,
+            #     config=vilt_config,
+            #     **model_kwargs
+            # )
             meme_model = ViLTForMemeSentimentClassification(
                 model_name_or_path=model_args.vilt_model_name_or_path,
                 config=vilt_config,
-                **model_kwargs
+                model_kwargs=model_kwargs
             )
             model = EmemeModel(
                 text_model=text_model,
-                processor=processor,
                 meme_model=meme_model,
-                loss_c=model_args.loss_c
+                loss_c=model_args.loss_c,
+                contrastive_logit_scale=model_args.contrastive_logit_scale,
+                projection_dim=model_args.projection_dim
             )
         else:
             # model = AutoModel.from_pretrained(
@@ -510,13 +512,13 @@ def main():
             max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
             eval_dataset = eval_dataset.select(range(max_eval_samples))
 
-    if training_args.do_predict or data_args.task_name is not None or data_args.test_file is not None:
-        if "test" not in raw_datasets and "test_matched" not in raw_datasets:
-            raise ValueError("--do_predict requires a test dataset")
-        predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
-        if data_args.max_predict_samples is not None:
-            max_predict_samples = min(len(predict_dataset), data_args.max_predict_samples)
-            predict_dataset = predict_dataset.select(range(max_predict_samples))
+    # if training_args.do_predict or data_args.task_name is not None or data_args.test_file is not None:
+    #     if "test" not in raw_datasets and "test_matched" not in raw_datasets:
+    #         raise ValueError("--do_predict requires a test dataset")
+    #     predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
+    #     if data_args.max_predict_samples is not None:
+    #         max_predict_samples = min(len(predict_dataset), data_args.max_predict_samples)
+    #         predict_dataset = predict_dataset.select(range(max_predict_samples))
 
     # Log a few random samples from the training set:
     if training_args.do_train:
@@ -558,7 +560,6 @@ def main():
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         compute_metrics=compute_metrics,
-        tokenizer=tokenizer,
         data_collator=data_collator,
     )
 
@@ -611,24 +612,24 @@ def main():
                     logger.info(f"  {key} = {value}")
                     writer.write(f"{key} = {value}\n")
 
-    if training_args.do_predict:
-        logger.info("*** Predict ***")
-        # Removing the `label` columns because it contains -1 and Trainer won't like that.
-        predict_dataset = predict_dataset.remove_columns("label")
-        predictions = trainer.predict(predict_dataset, metric_key_prefix="predict").predictions
-        predictions = np.squeeze(predictions) if is_regression else np.argmax(predictions, axis=1)
-
-        output_predict_file = os.path.join(training_args.output_dir, f"predict_results_{data_args.dataset_name}.txt")
-        if trainer.is_world_process_zero():
-            with open(output_predict_file, "w") as writer:
-                logger.info(f"***** Predict results {data_args.dataset_name} *****")
-                writer.write("index\tprediction\n")
-                for index, item in enumerate(predictions):
-                    if is_regression:
-                        writer.write(f"{index}\t{item:3.3f}\n")
-                    else:
-                        item = label_list[item]
-                        writer.write(f"{index}\t{item}\n")
+    # if training_args.do_predict:
+    #     logger.info("*** Predict ***")
+    #     # Removing the `label` columns because it contains -1 and Trainer won't like that.
+    #     predict_dataset = predict_dataset.remove_columns("label")
+    #     predictions = trainer.predict(predict_dataset, metric_key_prefix="predict").predictions
+    #     predictions = np.squeeze(predictions) if is_regression else np.argmax(predictions, axis=1)
+    #
+    #     output_predict_file = os.path.join(training_args.output_dir, f"predict_results_{data_args.dataset_name}.txt")
+    #     if trainer.is_world_process_zero():
+    #         with open(output_predict_file, "w") as writer:
+    #             logger.info(f"***** Predict results {data_args.dataset_name} *****")
+    #             writer.write("index\tprediction\n")
+    #             for index, item in enumerate(predictions):
+    #                 if is_regression:
+    #                     writer.write(f"{index}\t{item:3.3f}\n")
+    #                 else:
+    #                     item = label_list[item]
+    #                     writer.write(f"{index}\t{item}\n")
 
 
 if __name__ == "__main__":
