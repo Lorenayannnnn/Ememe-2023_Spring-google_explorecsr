@@ -129,6 +129,7 @@ dmypy.json
 .pyre/
 
 .idea/
+.DS_Store
 emoroberta_pytorch_model.bin
 ememe_emoroberta_cache
 
