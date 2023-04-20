@@ -27,7 +27,10 @@ from models.ViLTForEmeme import ViLTForMemeSentimentClassification
 from models.model import EmemeModel
 
 # Do not remove
-from Dataset.EmemeDataset import EmemeDataset
+from Dataset.EmemeDataset import (
+    EmemeDataset,
+    batch_collate
+)
 from train_utils import setup_optimizer, train, validate
 
 dataset_idx_to_label = {
@@ -422,7 +425,7 @@ def main():
         elif data_args.dataset_name == "ememe":
             text_model = EmoRobertaForEmeme(
                 config=emoroberta_config,
-                model_name_or_path=model_args.emoroberta_model_name_or_path,
+                model_name_or_path=model_args.emoroberta_model_ckpt if model_args.emoroberta_model_ckpt else model_args.emoroberta_model_name_or_path,
                 model_kwargs=model_kwargs
             )
             # processor = ViltProcessor.from_pretrained(
@@ -612,8 +615,8 @@ def main():
     else:
         # Set up dataloader
         loaders = {
-            "train": DataLoader(train_dataset, shuffle=True, batch_size=training_args.per_device_train_batch_size),
-            "val": DataLoader(eval_dataset, shuffle=True, batch_size=training_args.per_device_eval_batch_size),
+            "train": DataLoader(train_dataset, shuffle=True, batch_size=training_args.per_device_train_batch_size, collate_fn=lambda x: batch_collate(x)),
+            "val": DataLoader(eval_dataset, shuffle=True, batch_size=training_args.per_device_eval_batch_size, collate_fn=lambda x: batch_collate(x)),
         }
 
         # Set up optimizer
@@ -621,7 +624,7 @@ def main():
 
         if training_args.do_train:
             train(
-                num_epochs=training_args.num_train_epochs,
+                num_epochs=int(training_args.num_train_epochs),
                 model=model,
                 loaders=loaders,
                 optimizer=optimizer,

@@ -128,7 +128,7 @@ class EmemeDataset(data.Dataset):
             encoding['vilt_input'][k] = v.squeeze()
         # add labels
         encoding['labels'] = torch.tensor(np.array(label))
-        emoroberta_input = self.tokenizer(text, return_tensors="pt")
+        emoroberta_input = self.tokenizer(text, padding="max_length", return_tensors="pt")
         for k, v in emoroberta_input.items():
             encoding['emoroberta_input'][k] = v.squeeze()
 
@@ -136,7 +136,32 @@ class EmemeDataset(data.Dataset):
         # except Exception:
         #     print(f"Error when reading {image_url} with emotion {emotion}")
 
+def batch_collate(batch):
+    print(batch)
 
+    vilt_input_ids = [x['vilt_input']['input_ids'] for x in batch]
+    vilt_token_type_ids = [x['vilt_input']['token_type_ids'] for x in batch]
+    vilt_attention_mask = [x['vilt_input']['attention_mask'] for x in batch]
+    vilt_pixel_values = [x['vilt_input']['pixel_values'] for x in batch]
+    vilt_pixel_mask = [x['vilt_input']['pixel_mask'] for x in batch]
+    emoroberta_input_ids = [x['emoroberta_input']['input_ids'] for x in batch]
+    emoroberta_attention_mask = [x['emoroberta_input']['attention_mask'] for x in batch]
+    labels = [x['labels'] for x in batch]
+
+    return {
+        'vilt_input':{
+            'input_ids': vilt_input_ids,
+            'token_type_ids': vilt_token_type_ids,
+            'attention_mask': vilt_attention_mask,
+            'pixel_values': vilt_pixel_values,
+            'pixel_mask': vilt_pixel_mask
+        },
+        'emoroberta_input':{
+            'input_ids': emoroberta_input_ids,
+            'attention_mask': emoroberta_attention_mask
+        },
+        'labels': labels
+    }
 
 
 def build_ememe_dataloader(batch_size: int,
@@ -148,7 +173,7 @@ def build_ememe_dataloader(batch_size: int,
     dataloader = torch.utils.data.DataLoader(build_ememe_dataset(batch_size, data_dir, split, emotion_classes),
                                              batch_size=batch_size,
                                              shuffle=shuffle,
-                                            #  collate_fn=lambda x: batch_collate(x)
+                                             collate_fn=lambda x: batch_collate(x)
                                              )
     return dataloader
 
