@@ -130,6 +130,7 @@ dmypy.json
 
 .idea/
 emoroberta_pytorch_model.bin
+ememe_emoroberta_cache
 
 cached_data_dev.pkl
 cached_data_train.pkl
