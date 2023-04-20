@@ -114,12 +114,9 @@ class EmemeModel(nn.Module):
         classification_loss = F.cross_entropy(classification_out, labels.to(device))
         loss = contrastive_loss + classification_loss * self.loss_c
 
-        # Only contrastive when retrieval
-        # print("loss in modely.py: ", loss)
-
         return EmemeOutput(
             loss=loss,
-            logits=project_out,
+            logits=classification_out,
             logits_per_image=logits_per_image,
             logits_per_text=logits_per_text,
             text_embeds=text_embeds,

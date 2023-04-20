@@ -554,18 +554,17 @@ def main():
     else:
         data_collator = None
 
-    # Initialize our Trainer
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
-        compute_metrics=compute_metrics,
-        data_collator=data_collator,
-    )
-
     # Training
     if data_args.train_w_huggingface_trainer:
+        # Initialize our Trainer
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset if training_args.do_train else None,
+            eval_dataset=eval_dataset if training_args.do_eval else None,
+            compute_metrics=compute_metrics,
+            data_collator=data_collator,
+        )
         if training_args.do_train:
             checkpoint = None
             if training_args.resume_from_checkpoint is not None:
