@@ -61,8 +61,8 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --num_train_epochs 3 \
     --loss_c 0.5 \
     --contrastive_logit_scale 2.6592 \
-    --per_device_train_batch_size 32 \
-    --per_device_eval_batch_size 32 \
+    --per_device_train_batch_size 4 \
+    --per_device_eval_batch_size 4 \
     --projection_dim 512 \
     --overwrite_output_dir \
     --train_w_huggingface_trainer False

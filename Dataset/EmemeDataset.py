@@ -54,6 +54,9 @@ class EmemeDataset(data.Dataset):
                         # for image_url in image_url_list:
                         try:
                             image = Image.open(requests.get(image_url, stream=True).raw).convert('RGB')
+                            fixed_size = (384, 384)
+                            image_resized = image.resize(fixed_size, Image.ANTIALIAS)
+                            image = image_resized
                         except Exception:
                             emotion = entry["emotion"]
                             print(f"Error when reading {image_url} with emotion {emotion}")
@@ -63,7 +66,7 @@ class EmemeDataset(data.Dataset):
                             'image_url': image_url,
                             'emotion': entry["emotion"],
                             'label': self.emotion2label[entry["emotion"]],
-                            'image': image
+                            'image': image_resized
                         }
                         # # test
                         # text = example['text']
@@ -118,7 +121,7 @@ class EmemeDataset(data.Dataset):
         label = example['label']
         image = example['image']
 
-        vilt_encoding = encoding = self.processor(image, text, padding="max_length", truncation=True, return_tensors="pt")
+        vilt_encoding = self.processor(image, text, padding="max_length", truncation=True, return_tensors="pt")
         encoding = {}
         encoding['vilt_input'] = {}
         encoding['emoroberta_input'] = {}
@@ -137,16 +140,14 @@ class EmemeDataset(data.Dataset):
         #     print(f"Error when reading {image_url} with emotion {emotion}")
 
 def batch_collate(batch):
-    print(batch)
-
-    vilt_input_ids = [x['vilt_input']['input_ids'] for x in batch]
-    vilt_token_type_ids = [x['vilt_input']['token_type_ids'] for x in batch]
-    vilt_attention_mask = [x['vilt_input']['attention_mask'] for x in batch]
-    vilt_pixel_values = [x['vilt_input']['pixel_values'] for x in batch]
-    vilt_pixel_mask = [x['vilt_input']['pixel_mask'] for x in batch]
-    emoroberta_input_ids = [x['emoroberta_input']['input_ids'] for x in batch]
-    emoroberta_attention_mask = [x['emoroberta_input']['attention_mask'] for x in batch]
-    labels = [x['labels'] for x in batch]
+    vilt_input_ids = torch.stack([x['vilt_input']['input_ids'] for x in batch])
+    vilt_token_type_ids = torch.stack([x['vilt_input']['token_type_ids'] for x in batch])
+    vilt_attention_mask = torch.stack([x['vilt_input']['attention_mask'] for x in batch])
+    vilt_pixel_values = torch.stack([x['vilt_input']['pixel_values'] for x in batch])
+    vilt_pixel_mask = torch.stack([x['vilt_input']['pixel_mask'] for x in batch])
+    emoroberta_input_ids = torch.stack([x['emoroberta_input']['input_ids'] for x in batch])
+    emoroberta_attention_mask = torch.stack([x['emoroberta_input']['attention_mask'] for x in batch])
+    labels = torch.stack([x['labels'] for x in batch])
 
     return {
         'vilt_input':{

@@ -443,7 +443,8 @@ def main():
                 meme_model=meme_model,
                 loss_c=model_args.loss_c,
                 contrastive_logit_scale=model_args.contrastive_logit_scale,
-                projection_dim=model_args.projection_dim
+                projection_dim=model_args.projection_dim,
+                num_labels=num_labels
             )
         else:
             # model = AutoModel.from_pretrained(
@@ -619,6 +620,7 @@ def main():
             "val": DataLoader(eval_dataset, shuffle=True, batch_size=training_args.per_device_eval_batch_size, collate_fn=lambda x: batch_collate(x)),
         }
 
+        model = model.to(training_args.device)
         # Set up optimizer
         optimizer = setup_optimizer(training_args.learning_rate, model)
 

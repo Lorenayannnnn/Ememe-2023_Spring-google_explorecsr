@@ -2,11 +2,13 @@ import os
 from pathlib import Path
 
 import torch
-import tqdm
+from tqdm import tqdm
 from sklearn.metrics import (
     accuracy_score,
     classification_report
 )
+import traceback
+
 
 
 def get_device(status=True):
@@ -38,24 +40,27 @@ def train_epoch(
     # keep track of the model predictions for computing accuracy
     pred_labels = []
     target_labels = []
+    # put model inputs to device
+    model = model.to(device)
 
     # iterate over each batch in the dataloader
     # NOTE: you may have additional outputs from the loader __getitem__, you can modify this
-    for loaded_inputs in tqdm.tqdm(loader):
-        print(loaded_inputs)
-        # put model inputs to device
+    for loaded_inputs in tqdm(loader):
         # TODO check inputs & labels
         emoroberta_inputs = loaded_inputs["emoroberta_input"]
         vilt_inputs = loaded_inputs["vilt_input"]
-        labels = loaded_inputs["labels"]
+        labels = loaded_inputs["labels"].to(device)
 
-        emoroberta_inputs, vilt_inputs, labels = emoroberta_inputs.to(device), vilt_inputs.to(device), labels.to(
-            device).long()
+        # emoroberta_inputs, vilt_inputs, labels = emoroberta_inputs.to(device), vilt_inputs.to(device), labels.to(
+        #     device).long()
 
         # calculate the loss and train accuracy and perform backprop
-        outputs = model(emoroberta_inputs, vilt_inputs, labels)
-        loss = outputs.loss
-        pred_logits = outputs.logits
+        outputs = model(emoroberta_inputs, vilt_inputs, labels, device)
+        loss = outputs.loss.to(device)
+        pred_logits = outputs.logits.to(device)
+
+        # logging
+        epoch_loss += loss.item()
 
         # step optimizer and compute gradients during training
         if training:
@@ -63,8 +68,6 @@ def train_epoch(
             loss.backward()
             optimizer.step()
 
-        # logging
-        epoch_loss += loss.item()
 
         # compute metrics
         preds = pred_logits.argmax(-1)
@@ -162,5 +165,6 @@ def setup_optimizer(lr, model):
         - criterion: loss_fn
         - optimizer: torch.optim
     """
+    print("check model on device: ", next(model.parameters()).is_cuda)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
     return optimizer
