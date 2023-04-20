@@ -44,13 +44,15 @@ def train_epoch(
     for loaded_inputs in tqdm.tqdm(loader):
         # put model inputs to device
         # TODO check inputs & labels
-        inputs = loaded_inputs["inputs"]
+        emoroberta_inputs = loaded_inputs["emoroberta_input"]
+        vilt_inputs = loaded_inputs["vilt_input"]
         labels = loaded_inputs["labels"]
 
-        inputs, labels = inputs.to(device), labels.to(device).long()
+        emoroberta_inputs, vilt_inputs, labels = emoroberta_inputs.to(device), vilt_inputs.to(device), labels.to(
+            device).long()
 
         # calculate the loss and train accuracy and perform backprop
-        outputs = model(inputs, labels, do_train=training)
+        outputs = model(emoroberta_inputs, vilt_inputs, labels, do_train=training)
         loss = outputs.loss
         pred_logits = outputs.logits
 
