@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from transformers import AutoConfig
 from transformers.modeling_outputs import BaseModelOutputWithPooling
-from transformers.utils import ModelOutput
+from transformers import ModelOutput
 
 from models.EmoRobertaForEmeme import EmoRobertaForEmeme
 from models.ViLTForEmeme import ViLTForMemeSentimentClassification
