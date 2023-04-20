@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from transformers import AutoConfig
 from transformers.modeling_outputs import BaseModelOutputWithPooling
-from transformers.utils import ModelOutput
+from transformers import ModelOutput
 
 from models.EmoRobertaForEmeme import EmoRobertaForEmeme
 from models.ViLTForEmeme import ViLTForMemeSentimentClassification
@@ -91,12 +91,12 @@ class EmemeModel(nn.Module):
             loss = (F.cross_entropy(logits_per_text, labels) + F.cross_entropy(logits_per_text.T, labels)) / 2
             return loss, logits_per_text, logits_per_image
 
-    def forward(self, inputs, labels):
-        text_outputs, text_pooler_output = self.text_model(**inputs)
-        image_outputs, image_pooler_output = self.meme_model(**inputs)
+    def forward(self, emoroberta_inputs, vilt_inputs, labels):
+        text_outputs, text_pooler_output = self.text_model(**emoroberta_inputs)
+        image_outputs, image_pooler_output = self.meme_model(**vilt_inputs)
 
-        text_embeds = F.normalize(text_pooler_output, dim=1)
-        image_embeds = F.normalize(image_pooler_output, dim=1)
+        text_embeds = F.normalize(text_pooler_output)
+        image_embeds = F.normalize(image_pooler_output)
 
         project_out = self.projection_layer(torch.cat((image_embeds, text_embeds), dim=1))
 
