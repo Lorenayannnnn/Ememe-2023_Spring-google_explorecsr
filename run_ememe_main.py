@@ -8,9 +8,12 @@ from typing import Optional
 
 import evaluate as evaluate
 import numpy as np
+import torch
 import transformers
 from datasets import load_dataset
 import pickle as pkl
+
+from torch.utils.data import DataLoader
 from transformers import (
     HfArgumentParser,
     TrainingArguments, set_seed, AutoTokenizer, AutoConfig, AutoModelForSequenceClassification,
@@ -25,6 +28,7 @@ from models.model import EmemeModel
 
 # Do not remove
 from Dataset.EmemeDataset import EmemeDataset
+from train_utils import setup_optimizer, train, validate
 
 dataset_idx_to_label = {
     "ememe": {
@@ -217,6 +221,7 @@ class DataTrainingArguments:
     cached_dataset: Optional[str] = field(
         default=None, metadata={"help": "locally cached ememe dataset pickle file"}
     )
+    train_w_huggingface_trainer: Optional[bool] = field(default=True, metadata={"help": "whether use Huggingface trainer or not"})
 
 
 def main():
@@ -449,7 +454,7 @@ def main():
         logger.info("Training new model from scratch")
         model = AutoModelForSequenceClassification.from_config(config)
 
-    print(model)
+    model = model.to(training_args.device)
 
     if data_args.dataset_name != "ememe":
         '''
@@ -512,14 +517,6 @@ def main():
             max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
             eval_dataset = eval_dataset.select(range(max_eval_samples))
 
-    # if training_args.do_predict or data_args.task_name is not None or data_args.test_file is not None:
-    #     if "test" not in raw_datasets and "test_matched" not in raw_datasets:
-    #         raise ValueError("--do_predict requires a test dataset")
-    #     predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
-    #     if data_args.max_predict_samples is not None:
-    #         max_predict_samples = min(len(predict_dataset), data_args.max_predict_samples)
-    #         predict_dataset = predict_dataset.select(range(max_predict_samples))
-
     # Log a few random samples from the training set:
     if training_args.do_train:
         for index in random.sample(range(len(train_dataset)), 3):
@@ -564,72 +561,85 @@ def main():
     )
 
     # Training
-    if training_args.do_train:
-        checkpoint = None
-        if training_args.resume_from_checkpoint is not None:
-            checkpoint = training_args.resume_from_checkpoint
-        elif last_checkpoint is not None:
-            checkpoint = last_checkpoint
-        train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        metrics = train_result.metrics
-        max_train_samples = (
-            data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+    if data_args.train_w_huggingface_trainer:
+        if training_args.do_train:
+            checkpoint = None
+            if training_args.resume_from_checkpoint is not None:
+                checkpoint = training_args.resume_from_checkpoint
+            elif last_checkpoint is not None:
+                checkpoint = last_checkpoint
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
+            )
+            metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-        trainer.save_model()  # Saves the tokenizer too for easy upload
+            trainer.save_model()  # Saves the tokenizer too for easy upload
 
-        output_train_file = os.path.join(training_args.output_dir, f"train_results_{data_args.dataset_name}.txt")
-        if trainer.is_world_process_zero():
-            with open(output_train_file, "w") as writer:
-                logger.info("***** Train results *****")
-                for key, value in sorted(metrics.items()):
-                    logger.info(f"  {key} = {value}")
-                    writer.write(f"{key} = {value}\n")
+            output_train_file = os.path.join(training_args.output_dir, f"train_results_{data_args.dataset_name}.txt")
+            if trainer.is_world_process_zero():
+                with open(output_train_file, "w") as writer:
+                    logger.info("***** Train results *****")
+                    for key, value in sorted(metrics.items()):
+                        logger.info(f"  {key} = {value}")
+                        writer.write(f"{key} = {value}\n")
 
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
-        trainer.save_state()
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+            trainer.save_state()
 
-    # Evaluation
-    if training_args.do_eval:
-        logger.info("*** Evaluate ***")
-        metrics = trainer.evaluate(eval_dataset=eval_dataset)
+        # Evaluation
+        if training_args.do_eval:
+            logger.info("*** Evaluate ***")
+            metrics = trainer.evaluate(eval_dataset=eval_dataset)
 
-        max_eval_samples = (
-            data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
-        )
-        metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
+            max_eval_samples = (
+                data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
+            )
+            metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
+            trainer.log_metrics("eval", metrics)
+            trainer.save_metrics("eval", metrics)
 
-        output_eval_file = os.path.join(training_args.output_dir, f"eval_results_{data_args.dataset_name}.txt")
-        if trainer.is_world_process_zero():
-            with open(output_eval_file, "w") as writer:
-                logger.info("***** Eval results *****")
-                for key, value in sorted(metrics.items()):
-                    logger.info(f"  {key} = {value}")
-                    writer.write(f"{key} = {value}\n")
+            output_eval_file = os.path.join(training_args.output_dir, f"eval_results_{data_args.dataset_name}.txt")
+            if trainer.is_world_process_zero():
+                with open(output_eval_file, "w") as writer:
+                    logger.info("***** Eval results *****")
+                    for key, value in sorted(metrics.items()):
+                        logger.info(f"  {key} = {value}")
+                        writer.write(f"{key} = {value}\n")
+    else:
+        # Set up dataloader
+        loaders = {
+            "train": DataLoader(train_dataset, shuffle=True, batch_size=training_args.batch_size),
+            "val": DataLoader(eval_dataset, shuffle=True, batch_size=training_args.batch_size),
+        }
 
-    # if training_args.do_predict:
-    #     logger.info("*** Predict ***")
-    #     # Removing the `label` columns because it contains -1 and Trainer won't like that.
-    #     predict_dataset = predict_dataset.remove_columns("label")
-    #     predictions = trainer.predict(predict_dataset, metric_key_prefix="predict").predictions
-    #     predictions = np.squeeze(predictions) if is_regression else np.argmax(predictions, axis=1)
-    #
-    #     output_predict_file = os.path.join(training_args.output_dir, f"predict_results_{data_args.dataset_name}.txt")
-    #     if trainer.is_world_process_zero():
-    #         with open(output_predict_file, "w") as writer:
-    #             logger.info(f"***** Predict results {data_args.dataset_name} *****")
-    #             writer.write("index\tprediction\n")
-    #             for index, item in enumerate(predictions):
-    #                 if is_regression:
-    #                     writer.write(f"{index}\t{item:3.3f}\n")
-    #                 else:
-    #                     item = label_list[item]
-    #                     writer.write(f"{index}\t{item}\n")
+        # Set up optimizer
+        optimizer = setup_optimizer(training_args.learning_rate, model).to(training_args.device)
+
+        if training_args.do_train:
+            train(
+                num_epochs=training_args.num_train_epochs,
+                model=model,
+                loaders=loaders,
+                optimizer=optimizer,
+                device=training_args.device,
+                index_2_emotion_class=dataset_idx_to_label[data_args.task_name],
+                output_dir=training_args.output_dir
+            )
+        elif training_args.do_eval:
+            # Load pretrained model
+            model = torch.load(os.path.join(training_args.output_dir, "model.ckpt"))
+            val_loss, val_acc = validate(
+                model=model,
+                loader=loaders["val"],
+                optimizer=optimizer,
+                device=training_args.device,
+                index_2_emotion_class=dataset_idx_to_label[data_args.task_name]
+            )
+            print(f"val loss : {val_loss} | val acc: {val_acc}")
 
 
 if __name__ == "__main__":
