@@ -92,8 +92,8 @@ class EmemeModel(nn.Module):
             return loss, logits_per_text, logits_per_image
 
     def forward(self, emoroberta_inputs, vilt_inputs, labels):
-        text_outputs, text_pooler_output = self.text_model(**emoroberta_inputs)
-        image_outputs, image_pooler_output = self.meme_model(**vilt_inputs)
+        text_outputs, text_pooler_output = self.text_model(emoroberta_inputs)
+        image_outputs, image_pooler_output = self.meme_model(vilt_inputs)
 
         text_embeds = F.normalize(text_pooler_output)
         image_embeds = F.normalize(image_pooler_output)

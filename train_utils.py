@@ -49,8 +49,13 @@ def train_epoch(
         vilt_inputs = loaded_inputs["vilt_input"]
         labels = loaded_inputs["labels"]
 
-        emoroberta_inputs, vilt_inputs, labels = emoroberta_inputs.to(device), vilt_inputs.to(device), labels.to(
-            device).long()
+        for key in emoroberta_inputs.keys():
+            emoroberta_inputs[key] = emoroberta_inputs[key].to(device)
+
+        for key in vilt_inputs.keys():
+            vilt_inputs[key] = vilt_inputs[key].to(device)
+
+        labels = labels.to(device).long()
 
         # calculate the loss and train accuracy and perform backprop
         outputs = model(emoroberta_inputs, vilt_inputs, labels)
