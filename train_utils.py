@@ -52,8 +52,8 @@ def train_epoch(
 
         # calculate the loss and train accuracy and perform backprop
         outputs = model(emoroberta_inputs, vilt_inputs, labels, device)
-        loss = outputs.loss.to(device)
-        pred_logits = outputs.logits.to(device)
+        loss = outputs.loss
+        pred_logits = outputs.logits
 
         # logging
         epoch_loss += loss.item()
@@ -66,7 +66,7 @@ def train_epoch(
 
 
         # compute metrics
-        preds = pred_logits.argmax(-1)
+        preds = pred_logits.detach().argmax(-1)
         pred_labels.extend(preds.cpu().numpy())
         target_labels.extend(labels.cpu().numpy())
 

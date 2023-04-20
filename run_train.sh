@@ -58,7 +58,7 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --max_seq_length 128 \
     --seed 123 \
     --learning_rate 1e-5 \
-    --num_train_epochs 3 \
+    --num_train_epochs 50 \
     --loss_c 0.5 \
     --contrastive_logit_scale 2.6592 \
     --per_device_train_batch_size 4 \

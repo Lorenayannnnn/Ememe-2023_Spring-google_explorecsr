@@ -17,9 +17,6 @@ class EmoRobertaForEmeme(nn.Module):
 
     def forward(self, inputs):
         outputs = self.roberta_model(**inputs)
-        # last_hidden_state: batch_size, sequence_length, hidden_size
         pooled_outputs = self.pooler_layer(outputs.last_hidden_state)
 
-        # just return the ModelOutput with the pooler output
         return outputs, torch.tanh(pooled_outputs[:, -1, :])
-        # return torch.tanh(pooled_outputs[:, -1, :])
