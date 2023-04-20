@@ -42,6 +42,7 @@ def train_epoch(
     # iterate over each batch in the dataloader
     # NOTE: you may have additional outputs from the loader __getitem__, you can modify this
     for loaded_inputs in tqdm.tqdm(loader):
+        print(loaded_inputs)
         # put model inputs to device
         # TODO check inputs & labels
         emoroberta_inputs = loaded_inputs["emoroberta_input"]
