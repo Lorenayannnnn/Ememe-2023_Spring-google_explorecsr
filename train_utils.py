@@ -52,7 +52,7 @@ def train_epoch(
             device).long()
 
         # calculate the loss and train accuracy and perform backprop
-        outputs = model(emoroberta_inputs, vilt_inputs, labels, do_train=training)
+        outputs = model(emoroberta_inputs, vilt_inputs, labels)
         loss = outputs.loss
         pred_logits = outputs.logits
 
