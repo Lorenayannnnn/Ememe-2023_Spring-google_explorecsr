@@ -531,7 +531,7 @@ def main():
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
 
-        if data_args.task_name is not None:
+        if data_args.dataset_name is not None:
             result = metric.compute(predictions=preds, references=p.label_ids)
             if len(result) > 1:
                 result["combined_score"] = np.mean(list(result.values())).item()
@@ -612,12 +612,12 @@ def main():
     else:
         # Set up dataloader
         loaders = {
-            "train": DataLoader(train_dataset, shuffle=True, batch_size=training_args.batch_size),
-            "val": DataLoader(eval_dataset, shuffle=True, batch_size=training_args.batch_size),
+            "train": DataLoader(train_dataset, shuffle=True, batch_size=training_args.per_device_train_batch_size),
+            "val": DataLoader(eval_dataset, shuffle=True, batch_size=training_args.per_device_eval_batch_size),
         }
 
         # Set up optimizer
-        optimizer = setup_optimizer(training_args.learning_rate, model).to(training_args.device)
+        optimizer = setup_optimizer(training_args.learning_rate, model)
 
         if training_args.do_train:
             train(
@@ -626,7 +626,7 @@ def main():
                 loaders=loaders,
                 optimizer=optimizer,
                 device=training_args.device,
-                index_2_emotion_class=dataset_idx_to_label[data_args.task_name],
+                index_2_emotion_class=dataset_idx_to_label[data_args.dataset_name],
                 output_dir=training_args.output_dir
             )
         elif training_args.do_eval:
@@ -637,7 +637,7 @@ def main():
                 loader=loaders["val"],
                 optimizer=optimizer,
                 device=training_args.device,
-                index_2_emotion_class=dataset_idx_to_label[data_args.task_name]
+                index_2_emotion_class=dataset_idx_to_label[data_args.dataset_name]
             )
             print(f"val loss : {val_loss} | val acc: {val_acc}")
 
