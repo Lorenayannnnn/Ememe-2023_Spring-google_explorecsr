@@ -32,10 +32,6 @@ class EmemeDataset(data.Dataset):
         self.num_labels = len(emotion_list)
         print(f"cached_data_file in {self.cached_data_file}")
         print("num_labels: ", self.num_labels)
-        if split == 'train':
-            need = 1500
-        else:
-            need = 150
 
         if os.path.exists(self.cached_data_file):
             # Load cached raw_json_data
@@ -46,6 +42,10 @@ class EmemeDataset(data.Dataset):
                 json_file_path = os.path.join(data_dir, json_file)
                 # print("json_file_path: ", json_file_path)
                 with open(json_file_path) as file:
+                    if split == 'train':
+                        need = 500
+                    else:
+                        need = 50
                     j = json.load(file)
                     for entry in j:
                         image_url_list = entry["photos"]
@@ -75,10 +75,6 @@ class EmemeDataset(data.Dataset):
                             print(need)
                         if (need <= 0):
                             break
-                    if (need <= 0):
-                        break
-                if (need <= 0):
-                    break
 
             pkl.dump(self.data, open(self.cached_data_file, 'wb'))
 
