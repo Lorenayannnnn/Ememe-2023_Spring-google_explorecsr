@@ -103,7 +103,7 @@ class EmemeDataset(data.Dataset):
             encoding['vilt_input'][k] = v.squeeze()
         # add labels
         encoding['labels'] = torch.tensor(np.array(label))
-        emoroberta_input = self.tokenizer(text, padding="max_length", return_tensors="pt")
+        emoroberta_input = self.tokenizer(text, padding="max_length", truncation=True, return_tensors="pt")
         for k, v in emoroberta_input.items():
             encoding['emoroberta_input'][k] = v.squeeze()
 

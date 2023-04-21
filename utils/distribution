@@ -1,0 +1,9 @@
+emotion_list = ['anger', 'disgust', 'fear', 'joy', 'sadness', 'surprise']
+
+raw_distritbution_dict = {}
+
+def count(filename, emotion):
+    filepath = os.path.join('data', filename)
+    with open(filepath, 'r') as file:
+        data = json.load(file)
+        print('')

@@ -144,9 +144,11 @@ def train(num_epochs, model, loaders, optimizer, device, index_2_emotion_class, 
             performance_file = os.path.join(output_dir, "results.txt")
             print("saving model to ", ckpt_model_file)
             torch.save(model, ckpt_model_file)
-            with open(performance_file, 'w') as writer:
-                writer.write(f"Train acc: {train_acc} | Dev acccuracy: {best_val_acc} at epoch {epoch})\n")
+            with open(performance_file, 'a') as writer:
+                writer.write(f"Epoch: {epoch} | Train acc: {train_acc} | Dev acccuracy: {best_val_acc}\n")
+                writer.write(f"Epoch: {epoch} | Train loss: {train_loss} | Dev acccuracy: {val_loss}\n")
                 writer.write(val_report)
+                writer.write('\n')
                 # for (emotion_class, acc) in val_emotion_class_2_acc.items():
                 #     writer.write(f"{emotion_class}: {acc}\n")
 
