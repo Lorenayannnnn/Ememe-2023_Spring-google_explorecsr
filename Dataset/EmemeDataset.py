@@ -32,10 +32,6 @@ class EmemeDataset(data.Dataset):
         self.num_labels = len(emotion_list)
         print(f"cached_data_file in {self.cached_data_file}")
         print("num_labels: ", self.num_labels)
-        if split == 'train':
-            need = 3000
-        else:
-            need = 500
 
         if os.path.exists(self.cached_data_file):
             # Load cached raw_json_data
@@ -46,6 +42,10 @@ class EmemeDataset(data.Dataset):
                 json_file_path = os.path.join(data_dir, json_file)
                 # print("json_file_path: ", json_file_path)
                 with open(json_file_path) as file:
+                    if split == 'train':
+                        need = 500
+                    else:
+                        need = 50
                     j = json.load(file)
                     for entry in j:
                         image_url_list = entry["photos"]
@@ -68,30 +68,6 @@ class EmemeDataset(data.Dataset):
                             'label': self.emotion2label[entry["emotion"]],
                             'image': image_resized
                         }
-                        # # test
-                        # text = example['text']
-                        # image_url = example['image_url']
-                        # emotion = example['emotion']
-                        # label = example['label']
-                        # image = example['image']
-                        # vilt_encoding = encoding = self.processor(image, text, padding="max_length", truncation=True, return_tensors="pt")
-                        # encoding = {}
-                        # encoding['vilt_input'] = {}
-                        # encoding['emoroberta_input'] = {}
-
-                        # # remove batch dimension
-                        # for k, v in vilt_encoding.items():
-                        #     encoding['vilt_input'][k] = v.squeeze()
-                        # # add labels
-                        # encoding['labels'] = torch.tensor(np.array(label))
-                        # emoroberta_input = self.tokenizer(text, return_tensors="pt")
-                        # for k, v in emoroberta_input.items():
-                        #     encoding['emoroberta_input'][k] = v.squeeze()
-                        # print("encoding.keys(): ", encoding.keys())
-                        # print(encoding['vilt_input'].keys())
-                        # print(encoding['emoroberta_input'].keys())
-                        # exit()
-                        # # test
                         self.emotion_times[entry["emotion"]] += 1
                         self.data.append(example)
                         need -= 1
@@ -99,10 +75,6 @@ class EmemeDataset(data.Dataset):
                             print(need)
                         if (need <= 0):
                             break
-                    if (need <= 0):
-                        break
-                if (need <= 0):
-                    break
 
             pkl.dump(self.data, open(self.cached_data_file, 'wb'))
 
@@ -131,7 +103,7 @@ class EmemeDataset(data.Dataset):
             encoding['vilt_input'][k] = v.squeeze()
         # add labels
         encoding['labels'] = torch.tensor(np.array(label))
-        emoroberta_input = self.tokenizer(text, padding="max_length", return_tensors="pt")
+        emoroberta_input = self.tokenizer(text, padding="max_length", truncation=True, return_tensors="pt")
         for k, v in emoroberta_input.items():
             encoding['emoroberta_input'][k] = v.squeeze()
 
