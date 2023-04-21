@@ -53,7 +53,7 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --load_best_model_at_end \
     --metric_for_best_model accuracy \
     --greater_is_better true \
-    --output_dir outputs/ememe-loss_c_0.5-logic_scale_2.6592-proj_dim_512/ \
+    --output_dir outputs/epoch_50ememe-loss_c_0.5-logic_scale_2.6592-proj_dim_512/ \
     --overwrite_cache \
     --max_seq_length 128 \
     --seed 123 \
@@ -61,8 +61,8 @@ CUDA_VISIBLE_DEVICES=0 python3 run_ememe_main.py \
     --num_train_epochs 50 \
     --loss_c 0.5 \
     --contrastive_logit_scale 2.6592 \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
+    --per_device_train_batch_size 64 \
+    --per_device_eval_batch_size 64 \
     --projection_dim 512 \
     --overwrite_output_dir \
     --train_w_huggingface_trainer False
