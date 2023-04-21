@@ -135,3 +135,9 @@ ememe_emoroberta_cache
 
 cached_data_dev.pkl
 cached_data_train.pkl
+
+distribution.txt
+emotion_dist.csv
+model.ckpt
+record.json
+results.txt

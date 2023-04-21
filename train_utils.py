@@ -33,6 +33,7 @@ def train_epoch(
     else:
         model.eval()
     epoch_loss = 0.0
+    epoch_contrastive_loss = 0.0
 
     # keep track of the model predictions for computing accuracy
     pred_labels = []
@@ -54,9 +55,11 @@ def train_epoch(
         outputs = model(emoroberta_inputs, vilt_inputs, labels, device)
         loss = outputs.loss
         pred_logits = outputs.logits
+        contrastive_loss = outputs.contrastive_loss
 
         # logging
         epoch_loss += loss.item()
+        epoch_contrastive_loss += contrastive_loss.item()
 
         # step optimizer and compute gradients during training
         if training:
@@ -72,6 +75,7 @@ def train_epoch(
 
     acc = accuracy_score(pred_labels, target_labels)
     epoch_loss /= len(loader)
+    epoch_contrastive_loss /= len(loader)
 
     # def report_classification_accuracy(pred_labels, true_labels):
     #     from sklearn.metrics import confusion_matrix
@@ -92,7 +96,7 @@ def train_epoch(
     # emotion_class_2_acc = report_classification_accuracy(pred_labels=pred_labels, true_labels=target_labels)
     report = classification_report(y_pred=pred_labels, y_true=target_labels)
 
-    return epoch_loss, acc, report
+    return epoch_loss, acc, report, epoch_contrastive_loss
 
 
 def validate(model, loader, optimizer, device, index_2_emotion_class) -> (float, float, dict):
@@ -101,7 +105,7 @@ def validate(model, loader, optimizer, device, index_2_emotion_class) -> (float,
 
     # don't compute gradients
     with torch.no_grad():
-        val_loss, val_acc, val_report = train_epoch(
+        val_loss, val_acc, val_report, val_contrastive_loss = train_epoch(
             model=model,
             loader=loader,
             optimizer=optimizer,
@@ -110,7 +114,7 @@ def validate(model, loader, optimizer, device, index_2_emotion_class) -> (float,
             index_2_emotion_class=index_2_emotion_class
         )
 
-    return val_loss, val_acc, val_report
+    return val_loss, val_acc, val_report, val_contrastive_loss
 
 
 def train(num_epochs, model, loaders, optimizer, device, index_2_emotion_class, output_dir):
@@ -118,7 +122,7 @@ def train(num_epochs, model, loaders, optimizer, device, index_2_emotion_class, 
     for epoch in range(num_epochs):
         # train model for a single epoch
         print(f"Epoch {epoch}")
-        train_loss, train_acc, train_report = train_epoch(
+        train_loss, train_acc, train_report, train_contrastive_loss = train_epoch(
             model=model,
             loader=loaders["train"],
             optimizer=optimizer,
@@ -128,14 +132,14 @@ def train(num_epochs, model, loaders, optimizer, device, index_2_emotion_class, 
 
         print(f"train loss : {train_loss} | train acc: {train_acc}")
 
-        val_loss, val_acc, val_report = validate(
+        val_loss, val_acc, val_report, val_contrastive_loss = validate(
             model=model,
             loader=loaders["val"],
             optimizer=optimizer,
             device=device,
             index_2_emotion_class=index_2_emotion_class
         )
-        print(f"val loss : {val_loss} | val acc: {val_acc}")
+        print(f"val loss : {val_loss} | val contrastive loss: {val_contrastive_loss} | val acc: {val_acc}")
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc

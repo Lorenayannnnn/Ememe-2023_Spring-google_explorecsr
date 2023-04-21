@@ -613,6 +613,7 @@ def main():
                         logger.info(f"  {key} = {value}")
                         writer.write(f"{key} = {value}\n")
     else:
+        # Run without huggingface trainer
         # Set up dataloader
         loaders = {
             "train": DataLoader(train_dataset, shuffle=True, batch_size=training_args.per_device_train_batch_size, collate_fn=lambda x: batch_collate(x)),
@@ -635,15 +636,21 @@ def main():
             )
         elif training_args.do_eval:
             # Load pretrained model
-            model = torch.load(os.path.join(training_args.output_dir, "model.ckpt"))
-            val_loss, val_acc = validate(
+            print(f"load pretrained model from {os.path.join(training_args.output_dir, 'model.ckpt')}")
+            model = torch.load(os.path.join(training_args.output_dir, 'model.ckpt'))
+            val_loss, val_acc, val_report, val_contrastive_loss = validate(
                 model=model,
                 loader=loaders["val"],
                 optimizer=optimizer,
                 device=training_args.device,
                 index_2_emotion_class=dataset_idx_to_label[data_args.dataset_name]
             )
-            print(f"val loss : {val_loss} | val acc: {val_acc}")
+            print(f"val loss : {val_loss} | val contrastive loss: {val_contrastive_loss} | val acc: {val_acc}")
+            performance_file = os.path.join(training_args.output_dir, "eval_results.txt")
+            with open(performance_file, 'a') as writer:
+                writer.write(f"val loss : {val_loss} | val contrastive loss: {val_contrastive_loss} | val acc: {val_acc}")
+                writer.write(val_report)
+                writer.write('\n')
 
 
 if __name__ == "__main__":

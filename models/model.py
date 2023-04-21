@@ -34,6 +34,8 @@ class EmemeOutput(ModelOutput):
     """
 
     loss: Optional[torch.FloatTensor] = None
+    contrastive_loss: Optional[torch.FloatTensor] = None
+    classification_loss: Optional[torch.FloatTensor] = None
     logits_per_image: torch.FloatTensor = None
     logits_per_text: torch.FloatTensor = None
     text_embeds: torch.FloatTensor = None
@@ -113,6 +115,8 @@ class EmemeModel(nn.Module):
 
         return EmemeOutput(
             loss=loss,
+            contrastive_loss=contrastive_loss,
+            classification_loss=classification_loss,
             logits=classification_out,
             logits_per_image=logits_per_image,
             logits_per_text=logits_per_text,
